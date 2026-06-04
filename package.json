@@ -1,0 +1,20 @@
+{
+  "name": "card_tool",
+  "version": "1.0.0",
+  "description": "这是一个面向 Fabula Ultima「卡牌大师」职业的网页战斗助手，用来在冲突场景中管理牌堆、手牌、弃牌堆和职业技能操作。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^5.2.1",
+    "ws": "^8.21.0"
+  }
+}

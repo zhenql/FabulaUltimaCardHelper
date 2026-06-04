@@ -588,7 +588,7 @@
       <div class="table-top">
         <div>
           <h1>卡牌大师战斗助手</h1>
-          <p class="subtitle">固定视口个人操作台。选择技能后按提示操作，所有改变牌区的操作都会生成可撤销记录。</p>
+          <p class="subtitle">固定视口个人操作台。选择技能后按提示操作，所有改变牌区的操作都会生成可撤销记录。<span id="connectionStatus" class="pill">连接中</span></p>
         </div>
         <div class="stats" aria-label="牌堆状态">
           <div class="stat"><span>牌堆</span><b id="deckCount">0</b></div>
@@ -670,6 +670,7 @@
       nextId: 1,
       activeSkill: "magic",
       characterLevel: 1,
+      version: 0,
       skillLevels: {
         magic: 1,
         fortune: 1,
@@ -694,7 +695,84 @@
       controls: document.querySelector("#controls"),
       flowState: document.querySelector("#flowState"),
       skillNav: document.querySelector("#skillNav"),
+      connectionStatus: document.querySelector("#connectionStatus"),
     };
+
+    const roomId = getRoomId();
+    let socket = null;
+
+    function getRoomId() {
+      const pathRoom = location.pathname.match(/^\/room\/([a-zA-Z0-9_-]+)/)?.[1];
+      if (pathRoom) return pathRoom;
+      const url = new URL(location.href);
+      const existing = url.searchParams.get("room");
+      if (existing) return existing;
+      return "";
+    }
+
+    function setConnectionStatus(text) {
+      els.connectionStatus.textContent = roomId ? `房间 ${roomId} · ${text}` : text;
+    }
+
+    function connect() {
+      if (!roomId) {
+        setConnectionStatus("缺少房间 ID，请使用 /room/<id> 访问");
+        return;
+      }
+      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+      socket = new WebSocket(`${protocol}//${location.host}/ws?room=${encodeURIComponent(roomId)}`);
+      setConnectionStatus("连接中");
+
+      socket.addEventListener("open", () => setConnectionStatus("已连接"));
+      socket.addEventListener("close", (event) => {
+        if (event.code === 1008) {
+          setConnectionStatus("房间不存在或未授权");
+          return;
+        }
+        setConnectionStatus("已断开，重连中");
+        setTimeout(connect, 1200);
+      });
+      socket.addEventListener("error", () => setConnectionStatus("连接错误"));
+      socket.addEventListener("message", (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === "state") applyServerState(message.state);
+        if (message.type === "error") setConnectionStatus(message.message || "服务端错误");
+      });
+    }
+
+    function applyServerState(nextState) {
+      state.deck = cloneCards(nextState.deck || []);
+      state.hand = cloneCards(nextState.hand || []);
+      state.discard = cloneCards(nextState.discard || []);
+      state.selectedIds = new Set(nextState.selectedIds || []);
+      state.records = nextState.records || [];
+      state.nextId = nextState.nextId || state.nextId;
+      state.activeSkill = nextState.activeSkill || state.activeSkill;
+      state.characterLevel = nextState.characterLevel || 1;
+      state.version = nextState.version || 0;
+      state.skillLevels = {
+        magic: 1,
+        fortune: 1,
+        trap: 1,
+        ...(nextState.skillLevels || {}),
+      };
+      state.pendingHedge = nextState.pendingHedge ? { ...nextState.pendingHedge } : null;
+      render();
+    }
+
+    function dispatchAction(action) {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        setConnectionStatus("未连接，操作未发送");
+        return;
+      }
+      socket.send(JSON.stringify({
+        type: "action",
+        action: {
+          ...action,
+          baseVersion: state.version,
+        },
+      }));
+    }
 
     function makeCard(value, suit) {
       const info = SUITS.find((item) => item.symbol === suit);
@@ -762,15 +840,7 @@
     }
 
     function startConflict() {
-      state.nextId = 1;
-      state.deck = createDeck();
-      state.hand = [];
-      state.discard = [];
-      state.selectedIds.clear();
-      state.records = [];
-      state.pendingHedge = null;
-      drawCards(5, []);
-      render();
+      dispatchAction({ type: "startConflict" });
     }
 
     function drawCards(count, events, options = {}) {
@@ -968,119 +1038,29 @@
     }
 
     function undoRecord(recordId) {
-      const record = state.records.find((item) => item.id === recordId);
-      const latest = latestUndoableRecord();
-      if (!record || record.cancelled || !record.undoable || record.id !== latest?.id) return;
-      restoreSnapshot(record.before);
-      record.cancelled = true;
-      state.selectedIds.clear();
-      render();
+      dispatchAction({ type: "undoRecord", recordId });
     }
 
     function executeMagic() {
-      const sl = skillLevel("magic");
       const mp = Number(document.querySelector("#magicMp")?.value || 10);
-      const cards = selectedCards();
-      const required = cardsByMp(mp, sl);
-      if (cards.length !== required) return;
-
-      const before = snapshot();
-      const combos = detectCombos(cards);
-      const events = [];
-      removeFromHand(cards);
-      discardCards(cards);
-      const drawn = drawCards(cards.length, events, { recordShuffle: true });
-      addRecord(
-        "魔法卡牌",
-        `消耗 ${mp} MP，打出 ${cardsText(cards)}。`,
-        `${combos.length ? combos.map((combo) => `${combo.name}：${combo.effect}`).join(" ") : "未触发组合。"} 抽取 ${drawn.length} 张牌。${events.join(" ")}`,
-        before,
-      );
-      render();
+      dispatchAction({ type: "executeMagic", mp });
     }
 
     function executeFortune() {
-      const sl = skillLevel("fortune");
-      const cards = selectedCards();
-      if (!cards.length || cards.length > sl) return;
-
-      const before = snapshot();
-      const events = [];
-      removeFromHand(cards);
-      discardCards(cards);
-      const drawn = drawCards(cards.length, events, { recordShuffle: true });
-      addRecord(
-        "时运再来",
-        `弃掉 ${cardsText(cards)}。`,
-        `抽取 ${drawn.length} 张牌。${events.join(" ")}`,
-        before,
-      );
-      render();
+      dispatchAction({ type: "executeFortune" });
     }
 
     function executeTrap() {
-      const sl = skillLevel("trap");
       const suit = document.querySelector("#trapSuit")?.value || "♦";
-      if (!state.deck.length && !state.discard.length) return;
-
-      const before = snapshot();
-      const events = [];
-      if (state.deck.length === 0) {
-        const discardCount = state.discard.length;
-        state.deck = shuffle(state.discard);
-        state.discard = [];
-        events.push("牌堆为空，先洗入弃牌堆。");
-        addRecord(
-          "牌堆洗牌",
-          "触发陷阱卡牌时牌堆为空。",
-          `将弃牌堆 ${discardCount} 张牌洗入牌堆后继续翻牌。`,
-          null,
-          { undoable: false },
-        );
-      }
-      const card = state.deck.pop();
-      discardCards([card]);
-      const hit = card.joker || card.suit === suit;
-      addRecord(
-        "陷阱卡牌",
-        `宣言 ${suit}，翻开牌堆底牌并弃牌。`,
-        `翻出 ${cardText(card)}，${hit ? `命中，可用自由动作施放 MP≤${sl * 5} 的法术。` : "未命中。"} ${events.join(" ")}`,
-        before,
-      );
-      render();
+      dispatchAction({ type: "executeTrap", suit });
     }
 
     function executeHedgeDraw() {
-      if (state.pendingHedge) return;
-      const before = snapshot();
-      const events = [];
-      const drawn = drawCards(1, events, { recordShuffle: true });
-      state.pendingHedge = {
-        before,
-        drawnText: cardsText(drawn),
-        events: events.join(" "),
-      };
-      state.activeSkill = "hedge";
-      state.selectedIds.clear();
-      render();
+      dispatchAction({ type: "executeHedgeDraw" });
     }
 
     function executeHedgeDiscard() {
-      if (!state.pendingHedge) return;
-      const cards = selectedCards();
-      if (cards.length !== 1) return;
-
-      const pending = state.pendingHedge;
-      removeFromHand(cards);
-      discardCards(cards);
-      state.pendingHedge = null;
-      addRecord(
-        "风险对冲",
-        `大成功或大失败后抽牌：${pending.drawnText}；随后弃掉 ${cardsText(cards)}。`,
-        `风险对冲完成。${pending.events}`,
-        pending.before,
-      );
-      render();
+      dispatchAction({ type: "executeHedgeDiscard" });
     }
 
     function render() {
@@ -1275,22 +1255,17 @@
     els.hand.addEventListener("click", (event) => {
       const cardEl = event.target.closest("[data-card-id]");
       if (!cardEl) return;
-      const id = cardEl.dataset.cardId;
-      if (state.selectedIds.has(id)) state.selectedIds.delete(id);
-      else state.selectedIds.add(id);
-      render();
+      dispatchAction({ type: "toggleSelection", cardId: cardEl.dataset.cardId });
     });
 
     els.skillTable.addEventListener("input", (event) => {
       if (event.target.id === "characterLevel") {
-        state.characterLevel = Math.max(1, Number(event.target.value || 1));
-        render();
+        dispatchAction({ type: "setCharacterLevel", value: event.target.value });
         return;
       }
       const input = event.target.closest("[data-skill-level]");
       if (!input) return;
-      state.skillLevels[input.dataset.skillLevel] = Math.max(1, Number(input.value || 1));
-      render();
+      dispatchAction({ type: "setSkillLevel", skillId: input.dataset.skillLevel, value: input.value });
     });
 
     els.records.addEventListener("click", (event) => {
@@ -1303,9 +1278,7 @@
       const button = event.target.closest("[data-skill]");
       if (!button) return;
       if (state.pendingHedge && button.dataset.skill !== "hedge") return;
-      state.activeSkill = button.dataset.skill;
-      state.selectedIds.clear();
-      render();
+      dispatchAction({ type: "setActiveSkill", skillId: button.dataset.skill });
     });
 
     els.controls.addEventListener("change", (event) => {
@@ -1321,13 +1294,12 @@
     });
 
     document.querySelector("#clearSelection").addEventListener("click", () => {
-      state.selectedIds.clear();
-      render();
+      dispatchAction({ type: "clearSelection" });
     });
 
     document.querySelector("#newConflict").addEventListener("click", startConflict);
 
-    startConflict();
+    connect();
   </script>
 </body>
 </html>
