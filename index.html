@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>卡牌大师战斗助手</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10131c;
+      --panel: rgba(25, 30, 44, 0.92);
+      --panel-solid: #191e2c;
+      --panel-soft: #222a3d;
+      --line: #35405a;
+      --text: #f8efe3;
+      --muted: #aeb8cb;
+      --faint: #707b93;
+      --accent: #f0b35d;
+      --accent-dark: #8a571f;
+      --blue: #7dd3fc;
+      --danger: #fb7185;
+      --good: #86efac;
+      --shadow: 0 18px 55px rgba(0, 0, 0, 0.36);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 18% 14%, rgba(240, 179, 93, 0.2), transparent 32rem),
+        radial-gradient(circle at 92% 6%, rgba(125, 211, 252, 0.13), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      border-radius: 0.62rem;
+      padding: 0.52rem 0.68rem;
+      background: var(--accent);
+      color: #1c1208;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.42;
+    }
+
+    select,
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 0.55rem;
+      background: #121723;
+      color: var(--text);
+      padding: 0.42rem 0.52rem;
+    }
+
+    label {
+      display: grid;
+      gap: 0.25rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(1.45rem, 2.2vw, 2.35rem);
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    h2 {
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .app {
+      height: 100vh;
+      padding: 0.65rem;
+      display: grid;
+      grid-template-columns: minmax(620px, 1fr) 420px;
+      gap: 0.65rem;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1.2rem;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      min-height: 0;
+    }
+
+    .table {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .table-top {
+      padding: 0.75rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.75rem;
+      align-items: start;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .subtitle {
+      margin-top: 0.32rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 4.8rem);
+      gap: 0.4rem;
+    }
+
+    .stat {
+      background: rgba(34, 42, 61, 0.78);
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      padding: 0.45rem;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .stat b {
+      display: block;
+      margin-top: 0.1rem;
+      font-size: 1.1rem;
+    }
+
+    .table-middle {
+      padding: 0.65rem;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 240px;
+      gap: 0.65rem;
+    }
+
+    .zone {
+      min-height: 0;
+      background: rgba(12, 16, 25, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 0.85rem;
+      padding: 0.6rem;
+      overflow: hidden;
+    }
+
+    .zone-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.45rem;
+    }
+
+    .hand-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(78px, 96px));
+      gap: 0.62rem;
+      align-content: start;
+      justify-content: start;
+      height: calc(100% - 1.9rem);
+      overflow: auto;
+      padding: 0.15rem;
+    }
+
+    .card {
+      position: relative;
+      width: 96px;
+      aspect-ratio: 5 / 7;
+      display: grid;
+      place-items: center;
+      border-radius: 0.8rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: linear-gradient(145deg, #fff8ec, #dfd4c4);
+      color: #171018;
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .card.red {
+      color: #b91c1c;
+    }
+
+    .card.joker {
+      background: linear-gradient(145deg, #31263c, #15121c);
+      color: #f8e6bb;
+    }
+
+    .card.selected {
+      outline: 3px solid var(--accent);
+      transform: translateY(-5px);
+    }
+
+    .card.disabled {
+      opacity: 0.58;
+    }
+
+    .card .corner {
+      position: absolute;
+      top: 0.52rem;
+      left: 0.6rem;
+      font-weight: 900;
+      line-height: 1.05;
+    }
+
+    .card .value {
+      font-size: 1.95rem;
+      font-weight: 950;
+    }
+
+    .card .type {
+      position: absolute;
+      right: 0.6rem;
+      bottom: 0.5rem;
+      font-size: 0.72rem;
+      opacity: 0.72;
+    }
+
+    .discard-stage {
+      position: relative;
+      height: calc(100% - 1.9rem);
+      overflow: hidden;
+      border-radius: 0.85rem;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+
+    .discard-card {
+      position: absolute;
+      top: 24px;
+      width: 96px;
+      aspect-ratio: 5 / 7;
+      border-radius: 0.78rem;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: linear-gradient(145deg, #f8f0e2, #d8ccba);
+      color: #171018;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      box-shadow: 0 12px 22px rgba(0, 0, 0, 0.26);
+    }
+
+    .discard-card.red {
+      color: #b91c1c;
+    }
+
+    .discard-card.joker {
+      background: linear-gradient(145deg, #31263c, #15121c);
+      color: #f8e6bb;
+    }
+
+    .discard-card .mini-corner {
+      position: absolute;
+      top: 0.45rem;
+      left: 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 900;
+      line-height: 1.05;
+    }
+
+    .hint-bar {
+      padding: 0.55rem 0.75rem;
+      border-top: 1px solid var(--line);
+      background: rgba(13, 17, 26, 0.28);
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .hint-line {
+      min-height: 1.2rem;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+
+    .hint-line strong {
+      color: var(--accent);
+    }
+
+    .side {
+      display: grid;
+      grid-template-rows: auto minmax(190px, 1fr) minmax(70px, auto) minmax(48px, auto) 38px;
+      gap: 0;
+      min-height: 0;
+      border-left: 1px solid var(--line);
+      padding-left: 0.55rem;
+    }
+
+    .side-card {
+      padding: 0.42rem 0;
+      overflow: hidden;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .side-card:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .side-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .skills-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.28rem 0.4rem;
+      align-items: center;
+    }
+
+    .skill-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 3.8rem;
+      gap: 0.32rem;
+      align-items: center;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0.18rem 0;
+      min-width: 0;
+    }
+
+    .skill-name {
+      color: var(--text);
+      font-weight: 800;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .log-list {
+      height: 100%;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 0.45rem;
+      padding-right: 0.2rem;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0.1rem 0.2rem 0.1rem 0;
+    }
+
+    .record {
+      border: 1px solid var(--line);
+      border-radius: 0.55rem;
+      background: rgba(34, 42, 61, 0.58);
+      padding: 0.45rem;
+      display: grid;
+      gap: 0.32rem;
+      line-height: 1.32;
+    }
+
+    .record.cancelled {
+      opacity: 0.68;
+    }
+
+    .record-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .record small,
+    .muted {
+      color: var(--muted);
+    }
+
+    .record button {
+      padding: 0.45rem 0.65rem;
+      font-size: 0.78rem;
+    }
+
+    .tip-box {
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
+      color: var(--muted);
+      min-height: 0;
+      line-height: 1.32;
+    }
+
+    .tip-box strong {
+      color: var(--text);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
+    }
+
+    .controls select {
+      width: auto;
+      min-width: 10.5rem;
+    }
+
+    .inline-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--muted);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .control-line {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+
+    .control-status {
+      flex: 1 1 100%;
+      color: var(--text);
+      line-height: 1.25;
+      font-size: 0.86rem;
+      font-weight: 800;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
+    }
+
+    .control-row {
+      display: flex;
+      gap: 0.45rem;
+      align-items: center;
+    }
+
+    .nav {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.32rem;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+    }
+
+    .nav button {
+      min-height: 0;
+      padding: 0.34rem 0.2rem;
+      background: var(--panel-soft);
+      color: var(--text);
+      border: 1px solid var(--line);
+      font-size: 0.72rem;
+    }
+
+    .nav button.active {
+      background: var(--accent);
+      color: #1c1208;
+      border-color: var(--accent);
+    }
+
+    .secondary {
+      background: var(--panel-soft);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .danger {
+      background: rgba(251, 113, 133, 0.15);
+      color: #fecdd3;
+      border: 1px solid rgba(251, 113, 133, 0.4);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.2rem 0.5rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--muted);
+      font-size: 0.74rem;
+      white-space: nowrap;
+    }
+
+    #flowState {
+      display: none;
+    }
+
+    .good {
+      color: var(--good);
+    }
+
+    .warn {
+      color: var(--accent);
+    }
+
+    .empty {
+      color: var(--faint);
+      display: grid;
+      place-items: center;
+      min-height: 5rem;
+      text-align: center;
+    }
+
+    @media (max-width: 980px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        height: auto;
+        min-height: 100vh;
+        grid-template-columns: 1fr;
+      }
+
+      .table {
+        min-height: 780px;
+      }
+
+      .side {
+        min-height: 760px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel table">
+      <div class="table-top">
+        <div>
+          <h1>卡牌大师战斗助手</h1>
+          <p class="subtitle">固定视口个人操作台。选择技能后按提示操作，所有改变牌区的操作都会生成可撤销记录。</p>
+        </div>
+        <div class="stats" aria-label="牌堆状态">
+          <div class="stat"><span>牌堆</span><b id="deckCount">0</b></div>
+          <div class="stat"><span>手牌</span><b id="handCount">0</b></div>
+          <div class="stat"><span>弃牌</span><b id="discardCount">0</b></div>
+          <div class="stat"><span>选中</span><b id="selectedCount">0</b></div>
+        </div>
+      </div>
+
+      <div class="table-middle">
+        <section class="zone" aria-label="手牌区">
+          <div class="zone-head">
+            <div>
+              <button class="secondary" id="clearSelection">清空选择</button>
+              <button class="danger" id="newConflict">重置冲突</button>
+            </div>
+          </div>
+          <div id="hand" class="hand-grid"></div>
+        </section>
+
+        <section class="zone" aria-label="弃牌堆">
+          <div class="zone-head">
+            <span id="discardTop" class="pill">暂无弃牌</span>
+          </div>
+          <div id="discard" class="discard-stage"></div>
+        </section>
+      </div>
+
+      <footer class="hint-bar">
+        <div id="autoHint" class="hint-line">系统组合提示：等待开始。</div>
+        <div id="selectedHint" class="hint-line">选牌效果提示：选择手牌后显示。</div>
+      </footer>
+    </section>
+
+    <aside class="side">
+      <section class="panel side-card" aria-label="角色技能表">
+        <div class="skills-grid" id="skillTable"></div>
+      </section>
+
+      <section class="panel side-card" aria-label="操作记录区">
+        <div id="records" class="log-list"></div>
+      </section>
+
+      <section class="panel side-card" aria-label="操作提示区">
+        <div id="operationTip" class="tip-box"></div>
+      </section>
+
+      <section class="panel side-card" aria-label="操作控制区">
+        <span id="flowState" class="pill">待操作</span>
+        <div id="controls" class="controls"></div>
+      </section>
+
+      <nav class="panel side-card nav" id="skillNav" aria-label="技能导航栏"></nav>
+    </aside>
+  </main>
+
+  <script>
+    const SUITS = [
+      { symbol: "♦", name: "风", red: true },
+      { symbol: "♥", name: "火", red: true },
+      { symbol: "♠", name: "冰", red: false },
+      { symbol: "♣", name: "土", red: false },
+    ];
+
+    const SKILLS = [
+      { id: "gamble", name: "豪赌乾坤", hasSL: false },
+      { id: "hedge", name: "风险对冲", hasSL: false },
+      { id: "magic", name: "魔法卡牌", hasSL: true, defaultSL: 1 },
+      { id: "fortune", name: "时运再来", hasSL: true, defaultSL: 1 },
+      { id: "trap", name: "陷阱卡牌", hasSL: true, defaultSL: 1 },
+    ];
+
+    const state = {
+      deck: [],
+      hand: [],
+      discard: [],
+      selectedIds: new Set(),
+      records: [],
+      nextId: 1,
+      activeSkill: "magic",
+      characterLevel: 1,
+      skillLevels: {
+        magic: 1,
+        fortune: 1,
+        trap: 1,
+      },
+      pendingHedge: null,
+    };
+
+    const els = {
+      deckCount: document.querySelector("#deckCount"),
+      handCount: document.querySelector("#handCount"),
+      discardCount: document.querySelector("#discardCount"),
+      selectedCount: document.querySelector("#selectedCount"),
+      discardTop: document.querySelector("#discardTop"),
+      hand: document.querySelector("#hand"),
+      discard: document.querySelector("#discard"),
+      autoHint: document.querySelector("#autoHint"),
+      selectedHint: document.querySelector("#selectedHint"),
+      skillTable: document.querySelector("#skillTable"),
+      records: document.querySelector("#records"),
+      operationTip: document.querySelector("#operationTip"),
+      controls: document.querySelector("#controls"),
+      flowState: document.querySelector("#flowState"),
+      skillNav: document.querySelector("#skillNav"),
+    };
+
+    function makeCard(value, suit) {
+      const info = SUITS.find((item) => item.symbol === suit);
+      return {
+        id: `c${state.nextId++}`,
+        value,
+        suit,
+        type: info.name,
+        red: info.red,
+        joker: false,
+      };
+    }
+
+    function makeJoker(index) {
+      return {
+        id: `j${state.nextId++}`,
+        value: null,
+        suit: null,
+        type: `百搭${index}`,
+        red: false,
+        joker: true,
+      };
+    }
+
+    function createDeck() {
+      const cards = [];
+      for (const suit of SUITS) {
+        for (let value = 1; value <= 7; value += 1) {
+          cards.push(makeCard(value, suit.symbol));
+        }
+      }
+      cards.push(makeJoker(1), makeJoker(2));
+      return shuffle(cards);
+    }
+
+    function shuffle(cards) {
+      const copy = cloneCards(cards);
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function cloneCards(cards) {
+      return cards.map((card) => ({ ...card }));
+    }
+
+    function snapshot() {
+      return {
+        deck: cloneCards(state.deck),
+        hand: cloneCards(state.hand),
+        discard: cloneCards(state.discard),
+        selectedIds: [...state.selectedIds],
+        pendingHedge: state.pendingHedge ? { ...state.pendingHedge } : null,
+      };
+    }
+
+    function restoreSnapshot(snap) {
+      state.deck = cloneCards(snap.deck);
+      state.hand = cloneCards(snap.hand);
+      state.discard = cloneCards(snap.discard);
+      state.selectedIds = new Set(snap.selectedIds);
+      state.pendingHedge = snap.pendingHedge ? { ...snap.pendingHedge } : null;
+    }
+
+    function startConflict() {
+      state.nextId = 1;
+      state.deck = createDeck();
+      state.hand = [];
+      state.discard = [];
+      state.selectedIds.clear();
+      state.records = [];
+      state.pendingHedge = null;
+      drawCards(5, []);
+      render();
+    }
+
+    function drawCards(count, events, options = {}) {
+      const drawn = [];
+      while (drawn.length < count) {
+        if (state.deck.length === 0) {
+          if (state.discard.length === 0) break;
+          const discardCount = state.discard.length;
+          state.deck = shuffle(state.discard);
+          state.discard = [];
+          events.push("牌堆不足，已洗入弃牌堆继续抽牌。");
+          if (options.recordShuffle) {
+            addRecord(
+              "牌堆洗牌",
+              "触发抽牌时牌堆数量不足。",
+              `将弃牌堆 ${discardCount} 张牌洗入牌堆后继续抽牌。`,
+              null,
+              { undoable: false },
+            );
+          }
+        }
+        drawn.push(state.deck.shift());
+      }
+      state.hand.push(...drawn);
+      return drawn;
+    }
+
+    function selectedCards() {
+      return state.hand.filter((card) => state.selectedIds.has(card.id));
+    }
+
+    function removeFromHand(cards) {
+      const ids = new Set(cards.map((card) => card.id));
+      state.hand = state.hand.filter((card) => !ids.has(card.id));
+      ids.forEach((id) => state.selectedIds.delete(id));
+    }
+
+    function discardCards(cards) {
+      state.discard.unshift(...cloneCards(cards));
+    }
+
+    function cardText(card) {
+      return card.joker ? "百搭牌" : `${card.suit}${card.value}(${card.type})`;
+    }
+
+    function cardsText(cards) {
+      return cards.length ? cards.map(cardText).join("、") : "无";
+    }
+
+    function countBy(items) {
+      return items.reduce((acc, item) => {
+        acc[item] = (acc[item] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    function possibleAssignments(cards) {
+      let assignments = [[]];
+      for (const card of cards) {
+        const options = card.joker
+          ? SUITS.flatMap((suit) => Array.from({ length: 7 }, (_, index) => ({
+              ...card,
+              value: index + 1,
+              suit: suit.symbol,
+              type: suit.name,
+              red: suit.red,
+              jokerAs: true,
+            })))
+          : [card];
+        assignments = assignments.flatMap((assignment) => options.map((option) => [...assignment, option]));
+      }
+      return assignments;
+    }
+
+    function isStraight(values) {
+      const sorted = [...values].sort((a, b) => a - b);
+      return sorted.every((value, index) => index === 0 || value === sorted[index - 1] + 1);
+    }
+
+    function sumValues(cards) {
+      return cards.reduce((sum, card) => sum + card.value, 0);
+    }
+
+    function levelDamageBonus() {
+      if (state.characterLevel >= 40) return 20;
+      if (state.characterLevel >= 20) return 10;
+      return 0;
+    }
+
+    function damageText(base, suffix) {
+      const bonus = levelDamageBonus();
+      return `${base + bonus} 点${suffix}${bonus ? `（含等级额外 +${bonus}）` : ""}`;
+    }
+
+    function detectCombos(rawCards) {
+      if (rawCards.length < 2 || rawCards.length > 5) return [];
+      const combos = new Map();
+      const hasNaturalJoker = rawCards.some((card) => card.joker);
+
+      for (const cards of possibleAssignments(rawCards)) {
+        const values = cards.map((card) => card.value);
+        const suits = cards.map((card) => card.suit);
+        const counts = Object.values(countBy(values)).sort((a, b) => b - a);
+        const sum = sumValues(cards);
+        const highest = Math.max(...values);
+        const sameSuit = suits.every((suit) => suit === suits[0]);
+        const noJoker = !hasNaturalJoker;
+
+        addCombo(combos, rawCards.length === 4 && noJoker && counts[0] === 4, "王牌轰炸", cards,
+          "你和场景中的每个盟友恢复 777 点 HP 和 777 点 MP；已投降的玩家角色立即恢复意识。");
+        addCombo(combos, rawCards.length === 4 && isStraight(values) && sameSuit, "魔法同花顺", cards,
+          `对在场每个敌人造成 ${damageText(25 + sum, `${cards[0].type}伤害`)}。`);
+        addCombo(combos, rawCards.length === 4 && isStraight(values), "炫目连顺", cards,
+          `对在场每个敌人造成 ${damageText(15 + sum, `${sum % 2 ? "暗" : "光"}属性伤害`)}。`);
+        addCombo(combos, rawCards.length === 5 && counts[0] === 3 && counts[1] === 2, "状态满贯", cards,
+          highest % 2 === 0
+            ? "选择晕眩、颤抖、缓慢、虚弱中的两种；你和全部盟友恢复这些状态。"
+            : "选择晕眩、颤抖、缓慢、虚弱中的两种；全部敌人获得这些状态。");
+        addCombo(combos, rawCards.length === 3 && counts[0] === 3, "支援三条", cards,
+          `你和在场每个盟友恢复 ${sum} 点 HP 和 MP。`);
+        addCombo(combos, rawCards.length === 4 && counts[0] === 2 && counts[1] === 2, "双重麻烦", cards,
+          `至多两名敌人受到 ${damageText(10 + highest, "伤害")}；伤害属性可从结算牌花色中选择。`);
+        addCombo(combos, rawCards.length === 2 && counts[0] === 2, "魔法对子", cards,
+          "使用装备武器进行一次自由攻击；若造成伤害，从结算牌中选择一个花色改变本次攻击伤害属性。");
+      }
+
+      return [...combos.values()];
+    }
+
+    function addCombo(map, condition, name, assignedCards, effect) {
+      if (!condition || map.has(name)) return;
+      const assignedText = assignedCards
+        .map((card) => card.jokerAs ? `百搭→${card.suit}${card.value}` : cardText(card))
+        .join("、");
+      map.set(name, { name, effect, assignedText });
+    }
+
+    function combinations(cards, size) {
+      const result = [];
+      function walk(start, chosen) {
+        if (chosen.length === size) {
+          result.push(chosen);
+          return;
+        }
+        for (let i = start; i <= cards.length - (size - chosen.length); i += 1) {
+          walk(i + 1, [...chosen, cards[i]]);
+        }
+      }
+      walk(0, []);
+      return result;
+    }
+
+    function findHandSuggestions() {
+      const suggestions = new Map();
+      for (let size = 2; size <= Math.min(5, state.hand.length); size += 1) {
+        for (const group of combinations(state.hand, size)) {
+          for (const combo of detectCombos(group)) {
+            if (!suggestions.has(combo.name)) {
+              suggestions.set(combo.name, `${combo.name}（${cardsText(group)}）`);
+            }
+          }
+        }
+      }
+      return [...suggestions.values()];
+    }
+
+    function cardsByMp(mp, sl) {
+      if (mp < 10) return 0;
+      return Math.min(Math.floor(Math.min(mp, 10 + sl * 5) / 5), 5);
+    }
+
+    function currentSkill() {
+      return SKILLS.find((skill) => skill.id === state.activeSkill);
+    }
+
+    function skillLevel(skillId) {
+      return Math.max(1, Number(state.skillLevels[skillId] || 1));
+    }
+
+    function addRecord(skillName, operation, result, before, options = {}) {
+      state.records.push({
+        id: `r${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        skillName,
+        operation,
+        result,
+        before,
+        undoable: options.undoable !== false,
+        cancelled: false,
+        time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+      });
+    }
+
+    function latestUndoableRecord() {
+      return [...state.records].reverse().find((item) => item.undoable && !item.cancelled) || null;
+    }
+
+    function undoRecord(recordId) {
+      const record = state.records.find((item) => item.id === recordId);
+      const latest = latestUndoableRecord();
+      if (!record || record.cancelled || !record.undoable || record.id !== latest?.id) return;
+      restoreSnapshot(record.before);
+      record.cancelled = true;
+      state.selectedIds.clear();
+      render();
+    }
+
+    function executeMagic() {
+      const sl = skillLevel("magic");
+      const mp = Number(document.querySelector("#magicMp")?.value || 10);
+      const cards = selectedCards();
+      const required = cardsByMp(mp, sl);
+      if (cards.length !== required) return;
+
+      const before = snapshot();
+      const combos = detectCombos(cards);
+      const events = [];
+      removeFromHand(cards);
+      discardCards(cards);
+      const drawn = drawCards(cards.length, events, { recordShuffle: true });
+      addRecord(
+        "魔法卡牌",
+        `消耗 ${mp} MP，打出 ${cardsText(cards)}。`,
+        `${combos.length ? combos.map((combo) => `${combo.name}：${combo.effect}`).join(" ") : "未触发组合。"} 抽取 ${drawn.length} 张牌。${events.join(" ")}`,
+        before,
+      );
+      render();
+    }
+
+    function executeFortune() {
+      const sl = skillLevel("fortune");
+      const cards = selectedCards();
+      if (!cards.length || cards.length > sl) return;
+
+      const before = snapshot();
+      const events = [];
+      removeFromHand(cards);
+      discardCards(cards);
+      const drawn = drawCards(cards.length, events, { recordShuffle: true });
+      addRecord(
+        "时运再来",
+        `弃掉 ${cardsText(cards)}。`,
+        `抽取 ${drawn.length} 张牌。${events.join(" ")}`,
+        before,
+      );
+      render();
+    }
+
+    function executeTrap() {
+      const sl = skillLevel("trap");
+      const suit = document.querySelector("#trapSuit")?.value || "♦";
+      if (!state.deck.length && !state.discard.length) return;
+
+      const before = snapshot();
+      const events = [];
+      if (state.deck.length === 0) {
+        const discardCount = state.discard.length;
+        state.deck = shuffle(state.discard);
+        state.discard = [];
+        events.push("牌堆为空，先洗入弃牌堆。");
+        addRecord(
+          "牌堆洗牌",
+          "触发陷阱卡牌时牌堆为空。",
+          `将弃牌堆 ${discardCount} 张牌洗入牌堆后继续翻牌。`,
+          null,
+          { undoable: false },
+        );
+      }
+      const card = state.deck.pop();
+      discardCards([card]);
+      const hit = card.joker || card.suit === suit;
+      addRecord(
+        "陷阱卡牌",
+        `宣言 ${suit}，翻开牌堆底牌并弃牌。`,
+        `翻出 ${cardText(card)}，${hit ? `命中，可用自由动作施放 MP≤${sl * 5} 的法术。` : "未命中。"} ${events.join(" ")}`,
+        before,
+      );
+      render();
+    }
+
+    function executeHedgeDraw() {
+      if (state.pendingHedge) return;
+      const before = snapshot();
+      const events = [];
+      const drawn = drawCards(1, events, { recordShuffle: true });
+      state.pendingHedge = {
+        before,
+        drawnText: cardsText(drawn),
+        events: events.join(" "),
+      };
+      state.activeSkill = "hedge";
+      state.selectedIds.clear();
+      render();
+    }
+
+    function executeHedgeDiscard() {
+      if (!state.pendingHedge) return;
+      const cards = selectedCards();
+      if (cards.length !== 1) return;
+
+      const pending = state.pendingHedge;
+      removeFromHand(cards);
+      discardCards(cards);
+      state.pendingHedge = null;
+      addRecord(
+        "风险对冲",
+        `大成功或大失败后抽牌：${pending.drawnText}；随后弃掉 ${cardsText(cards)}。`,
+        `风险对冲完成。${pending.events}`,
+        pending.before,
+      );
+      render();
+    }
+
+    function render() {
+      renderTable();
+      renderSkillTable();
+      renderRecords();
+      renderSkillNav();
+      renderOperation();
+      renderHints();
+    }
+
+    function renderTable() {
+      const selected = selectedCards();
+      els.deckCount.textContent = state.deck.length;
+      els.handCount.textContent = state.hand.length;
+      els.discardCount.textContent = state.discard.length;
+      els.selectedCount.textContent = selected.length;
+      els.discardTop.textContent = state.discard[0] ? `顶部：${cardText(state.discard[0])}` : "暂无弃牌";
+
+      els.hand.innerHTML = state.hand.map((card) => `
+        <div class="card ${card.red ? "red" : ""} ${card.joker ? "joker" : ""} ${state.selectedIds.has(card.id) ? "selected" : ""}" data-card-id="${card.id}">
+          <span class="corner">${card.joker ? "★" : `${card.suit}<br>${card.value}`}</span>
+          <span class="value">${card.joker ? "J" : card.value}</span>
+          <span class="type">${card.joker ? "百搭" : card.type}</span>
+        </div>
+      `).join("") || `<div class="empty">暂无手牌</div>`;
+
+      const visibleDiscard = state.discard.slice(0, 18).reverse();
+      els.discard.innerHTML = visibleDiscard.map((card, index) => {
+        const visibleIndex = Math.min(index, 12);
+        const left = 18 + visibleIndex * 22;
+        const top = 22;
+        const zIndex = 100 + visibleIndex;
+        return `
+          <div class="discard-card ${card.red ? "red" : ""} ${card.joker ? "joker" : ""}" style="left:${left}px; top:${top}px; z-index:${zIndex};">
+            <span class="mini-corner">${card.joker ? "★" : `${card.suit}<br>${card.value}`}</span>
+            <span>${card.joker ? "J" : card.value}</span>
+          </div>
+        `;
+      }).join("") || `<div class="empty">弃牌堆为空</div>`;
+    }
+
+    function renderSkillTable() {
+      const levelRow = `
+        <div class="skill-row">
+          <span class="skill-name">角色等级</span>
+          <input id="characterLevel" type="number" min="1" max="50" value="${state.characterLevel}" aria-label="角色等级">
+        </div>
+      `;
+      els.skillTable.innerHTML = levelRow + SKILLS.map((skill) => {
+        if (!skill.hasSL) {
+          return `
+            <div class="skill-row">
+              <span class="skill-name">${skill.name}</span>
+              <span class="pill">固定</span>
+            </div>
+          `;
+        }
+        return `
+          <div class="skill-row">
+            <span class="skill-name">${skill.name}</span>
+            <input data-skill-level="${skill.id}" type="number" min="1" max="10" value="${skillLevel(skill.id)}" aria-label="${skill.name} SL">
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderRecords() {
+      const latest = latestUndoableRecord();
+      els.records.innerHTML = state.records.map((record) => `
+        <article class="record ${record.cancelled ? "cancelled" : ""}">
+          <div class="record-title">
+            <span>${record.skillName}</span>
+            <small>${record.time}</small>
+          </div>
+          <div><strong>操作：</strong>${record.operation}</div>
+          <div><strong>结算：</strong>${record.result}</div>
+          ${record.cancelled ? `<small class="warn">已撤销，牌区状态已回滚到此操作前。</small>` : ""}
+          ${!record.cancelled && !record.undoable ? `<small class="muted">系统记录，不参与撤销。</small>` : ""}
+          ${!record.cancelled && record.undoable && latest?.id === record.id ? `<button class="secondary" data-undo="${record.id}">撤销此操作</button>` : ""}
+          ${!record.cancelled && record.undoable && latest?.id !== record.id ? `<small class="muted">需先撤销之后的操作。</small>` : ""}
+        </article>
+      `).join("") || `<div class="empty">操作记录信息卡将在这里出现</div>`;
+    }
+
+    function renderSkillNav() {
+      els.skillNav.innerHTML = SKILLS.map((skill) => `
+        <button class="${state.activeSkill === skill.id ? "active" : ""}" data-skill="${skill.id}" ${state.pendingHedge && skill.id !== "hedge" ? "disabled" : ""}>${skill.name}</button>
+      `).join("");
+    }
+
+    function renderOperation() {
+      const skill = currentSkill();
+      const selected = selectedCards();
+      els.operationTip.innerHTML = operationTipText(skill.id);
+      els.controls.innerHTML = controlsHtml(skill.id, selected);
+      els.flowState.textContent = state.pendingHedge ? "风险对冲：待弃牌" : "待操作";
+    }
+
+    function operationTipText(skillId) {
+      const tips = {
+        gamble: "<strong>豪赌乾坤：</strong>在命中检定、攻击性法术施法检定，或推动/阻碍命刻的检定时宣言。若触发大成功，相关效果双倍；若检定失败，一律视为大失败。此技能不改变牌堆，也不生成操作记录。",
+        hedge: state.pendingHedge
+          ? "<strong>风险对冲：</strong>已抽牌。现在必须在手牌区选择 1 张手牌，然后点击“弃牌”完成本次操作。"
+          : "<strong>风险对冲：</strong>当你投出大成功或大失败时，可以先抽 1 张牌；随后必须从手牌弃掉 1 张牌，完成后生成操作记录。",
+        magic: "<strong>魔法卡牌：</strong>在冲突场景中使用一个动作，消耗最多 10 + SL×5 MP，且至少 10 MP。每消耗 5 MP 可打出 1 张手牌，最多 5 张；结算组合后弃牌并补抽同等数量。",
+        fortune: "<strong>时运再来：</strong>在你的回合结束后，弃掉最多等于 SL 数量的手牌，然后立刻抽取相同数量的牌。",
+        trap: "<strong>陷阱卡牌：</strong>敌人行动结算后宣言一个花色，翻开牌堆最底下的第一张牌并弃掉。若花色一致或为百搭牌，可用自由动作施放 MP 总消耗不大于 SL×5 的法术。",
+      };
+      return tips[skillId];
+    }
+
+    function controlsHtml(skillId, selected) {
+      if (skillId === "gamble") {
+        return `
+          <div class="control-status">待操作：无需执行；不生成操作记录。</div>
+          <div class="control-line"><span class="muted">请在游戏客户端或线下检定中应用提示结果。</span></div>
+        `;
+      }
+      if (skillId === "hedge") {
+        const canDiscard = state.pendingHedge && selected.length === 1;
+        return `
+          <div class="control-status">待操作：${state.pendingHedge ? `需要弃 1 张；已选 ${selected.length} 张。` : "先抽 1 张，再弃 1 张。"}</div>
+          <div class="control-line">
+            <button id="hedgeDraw" ${state.pendingHedge ? "disabled" : ""}>抽牌</button>
+            <button id="hedgeDiscard" ${canDiscard ? "" : "disabled"}>弃牌</button>
+          </div>
+        `;
+      }
+      if (skillId === "magic") {
+        const sl = skillLevel("magic");
+        const mpOptions = [];
+        for (let mp = 10; mp <= 10 + sl * 5; mp += 5) mpOptions.push(mp);
+        const selectedMp = Number(document.querySelector("#magicMp")?.value || mpOptions[0]);
+        const required = cardsByMp(selectedMp, sl);
+        const canConfirm = selected.length === required;
+        return `
+          <div class="control-status">待操作：需要 ${required} 张；已选 ${selected.length} 张。</div>
+          <div class="control-line">
+            <span class="inline-field">MP 值
+            <select id="magicMp">
+              ${mpOptions.map((mp) => `<option value="${mp}" ${mp === selectedMp ? "selected" : ""}>${mp} MP（对应 ${cardsByMp(mp, sl)} 张）</option>`).join("")}
+            </select>
+            </span>
+            <button id="magicConfirm" ${canConfirm ? "" : "disabled"}>确认</button>
+          </div>
+        `;
+      }
+      if (skillId === "fortune") {
+        const sl = skillLevel("fortune");
+        const canDiscard = selected.length > 0 && selected.length <= sl;
+        return `
+          <div class="control-status">待操作：最多弃 ${sl} 张；已选 ${selected.length} 张。</div>
+          <div class="control-line">
+            <button id="fortuneDiscard" ${canDiscard ? "" : "disabled"}>弃牌</button>
+          </div>
+        `;
+      }
+      if (skillId === "trap") {
+        return `
+          <div class="control-status">待操作：宣言花色后翻开牌堆底牌并弃牌。</div>
+          <div class="control-line">
+            <span class="inline-field">宣言花色
+            <select id="trapSuit">
+              ${SUITS.map((suit) => `<option value="${suit.symbol}">${suit.symbol} ${suit.name}</option>`).join("")}
+            </select>
+            </span>
+            <button id="trapFlip" ${state.deck.length || state.discard.length ? "" : "disabled"}>翻开牌堆底牌并弃牌</button>
+          </div>
+        `;
+      }
+      return "";
+    }
+
+    function renderHints() {
+      const suggestions = findHandSuggestions();
+      els.autoHint.innerHTML = suggestions.length
+        ? `<strong>系统组合提示：</strong>${suggestions.slice(0, 4).join("；")}${suggestions.length > 4 ? "；等" : ""}`
+        : "<strong>系统组合提示：</strong>当前手牌没有可直接满足的组合。";
+
+      const selected = selectedCards();
+      if (!selected.length) {
+        els.selectedHint.innerHTML = "<strong>选牌效果提示：</strong>请选择 2-5 张手牌查看可达成效果。";
+        return;
+      }
+      const combos = detectCombos(selected);
+      els.selectedHint.innerHTML = combos.length
+        ? `<strong>选牌效果提示：</strong>${combos.map((combo) => `${combo.name}：${combo.effect}`).join("；")}`
+        : `<strong>选牌效果提示：</strong>已选 ${cardsText(selected)}，尚未达成组合。`;
+    }
+
+    els.hand.addEventListener("click", (event) => {
+      const cardEl = event.target.closest("[data-card-id]");
+      if (!cardEl) return;
+      const id = cardEl.dataset.cardId;
+      if (state.selectedIds.has(id)) state.selectedIds.delete(id);
+      else state.selectedIds.add(id);
+      render();
+    });
+
+    els.skillTable.addEventListener("input", (event) => {
+      if (event.target.id === "characterLevel") {
+        state.characterLevel = Math.max(1, Number(event.target.value || 1));
+        render();
+        return;
+      }
+      const input = event.target.closest("[data-skill-level]");
+      if (!input) return;
+      state.skillLevels[input.dataset.skillLevel] = Math.max(1, Number(input.value || 1));
+      render();
+    });
+
+    els.records.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-undo]");
+      if (!button) return;
+      undoRecord(button.dataset.undo);
+    });
+
+    els.skillNav.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-skill]");
+      if (!button) return;
+      if (state.pendingHedge && button.dataset.skill !== "hedge") return;
+      state.activeSkill = button.dataset.skill;
+      state.selectedIds.clear();
+      render();
+    });
+
+    els.controls.addEventListener("change", (event) => {
+      if (event.target.id === "magicMp") render();
+    });
+
+    els.controls.addEventListener("click", (event) => {
+      if (event.target.id === "hedgeDraw") executeHedgeDraw();
+      if (event.target.id === "hedgeDiscard") executeHedgeDiscard();
+      if (event.target.id === "magicConfirm") executeMagic();
+      if (event.target.id === "fortuneDiscard") executeFortune();
+      if (event.target.id === "trapFlip") executeTrap();
+    });
+
+    document.querySelector("#clearSelection").addEventListener("click", () => {
+      state.selectedIds.clear();
+      render();
+    });
+
+    document.querySelector("#newConflict").addEventListener("click", startConflict);
+
+    startConflict();
+  </script>
+</body>
+</html>
