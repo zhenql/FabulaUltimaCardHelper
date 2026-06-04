@@ -39,6 +39,30 @@ const SUITS = [
   { symbol: "♣", name: "土", red: false },
 ];
 
+const SKILL_LIMITS = {
+  gamble: 1,
+  hedge: 1,
+  magic: 3,
+  fortune: 5,
+  trap: 4,
+};
+
+const SKILL_NAMES = {
+  gamble: "豪赌乾坤",
+  hedge: "风险对冲",
+  magic: "魔法卡牌",
+  fortune: "时运再来",
+  trap: "陷阱卡牌",
+};
+
+const DEFAULT_SKILL_LEVELS = {
+  gamble: 0,
+  hedge: 0,
+  magic: 0,
+  fortune: 0,
+  trap: 0,
+};
+
 const roomClients = new Map();
 const roomStates = new Map();
 const allowedRooms = loadAllowedRooms();
@@ -108,11 +132,10 @@ function hydrateState(raw) {
     ...raw,
     selectedIds: new Set(raw.selectedIds || []),
     skillLevels: {
-      magic: 1,
-      fortune: 1,
-      trap: 1,
+      ...DEFAULT_SKILL_LEVELS,
       ...(raw.skillLevels || {}),
     },
+    skillNotice: raw.skillNotice || "",
   };
 }
 
@@ -175,12 +198,9 @@ function createInitialState() {
     records: [],
     nextId: 1,
     activeSkill: "magic",
-    characterLevel: 1,
-    skillLevels: {
-      magic: 1,
-      fortune: 1,
-      trap: 1,
-    },
+    characterLevel: 5,
+    skillLevels: { ...DEFAULT_SKILL_LEVELS },
+    skillNotice: "",
     pendingHedge: null,
     version: 0,
   };
@@ -355,7 +375,11 @@ function cardsByMp(mp, sl) {
 }
 
 function skillLevel(state, skillId) {
-  return Math.max(1, Number(state.skillLevels[skillId] || 1));
+  return Math.max(0, Number(state.skillLevels[skillId] || 0));
+}
+
+function skillTotal(levels) {
+  return Object.keys(SKILL_LIMITS).reduce((total, skillId) => total + Math.max(0, Number(levels[skillId] || 0)), 0);
 }
 
 function addRecord(state, skillName, operation, result, before, options = {}) {
@@ -386,6 +410,7 @@ function applyAction(state, action) {
       state.records = [];
       state.nextId = nextId;
       state.pendingHedge = null;
+      state.skillNotice = "";
       state.deck = createDeck(state);
       drawCards(state, 5, []);
       break;
@@ -408,10 +433,30 @@ function applyAction(state, action) {
       state.characterLevel = Math.max(1, Math.min(50, Number(action.value || 1)));
       break;
     case "setSkillLevel":
-      if (!["magic", "fortune", "trap"].includes(action.skillId)) break;
-      state.skillLevels[action.skillId] = Math.max(1, Math.min(10, Number(action.value || 1)));
+      if (!Object.hasOwn(SKILL_LIMITS, action.skillId)) break;
+      {
+        const maxLevel = SKILL_LIMITS[action.skillId];
+        const requested = Math.max(0, Number(action.value || 0));
+        if (requested > maxLevel) {
+          state.skillNotice = `${SKILL_NAMES[action.skillId]}的等级上限是 ${maxLevel}。`;
+          break;
+        }
+        const nextLevels = { ...state.skillLevels };
+        nextLevels[action.skillId] = requested;
+        const total = skillTotal(nextLevels);
+        if (total > 10) {
+          state.skillNotice = `技能等级总和不能超过 10；当前尝试会达到 ${total}。`;
+          break;
+        }
+        state.skillLevels[action.skillId] = requested;
+        state.skillNotice = "";
+      }
       break;
     case "executeMagic": {
+      if (skillLevel(state, "magic") === 0) {
+        state.skillNotice = "魔法卡牌未习得，不可发动该技能。";
+        break;
+      }
       const sl = skillLevel(state, "magic");
       const mp = Number(action.mp || 10);
       const cards = selectedCards(state);
@@ -433,6 +478,10 @@ function applyAction(state, action) {
       break;
     }
     case "executeFortune": {
+      if (skillLevel(state, "fortune") === 0) {
+        state.skillNotice = "时运再来未习得，不可发动该技能。";
+        break;
+      }
       const sl = skillLevel(state, "fortune");
       const cards = selectedCards(state);
       if (!cards.length || cards.length > sl) break;
@@ -445,6 +494,10 @@ function applyAction(state, action) {
       break;
     }
     case "executeTrap": {
+      if (skillLevel(state, "trap") === 0) {
+        state.skillNotice = "陷阱卡牌未习得，不可发动该技能。";
+        break;
+      }
       const sl = skillLevel(state, "trap");
       const suit = action.suit || "♦";
       if (!state.deck.length && !state.discard.length) break;
@@ -477,6 +530,10 @@ function applyAction(state, action) {
       break;
     }
     case "executeHedgeDraw": {
+      if (skillLevel(state, "hedge") === 0) {
+        state.skillNotice = "风险对冲未习得，不可发动该技能。";
+        break;
+      }
       if (state.pendingHedge) break;
       const before = snapshot(state);
       const events = [];
@@ -491,6 +548,10 @@ function applyAction(state, action) {
       break;
     }
     case "executeHedgeDiscard": {
+      if (skillLevel(state, "hedge") === 0) {
+        state.skillNotice = "风险对冲未习得，不可发动该技能。";
+        break;
+      }
       if (!state.pendingHedge) break;
       const cards = selectedCards(state);
       if (cards.length !== 1) break;

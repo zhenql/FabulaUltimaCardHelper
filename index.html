@@ -106,6 +106,13 @@
       color: var(--text);
     }
 
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
     .app {
       height: 100vh;
       padding: 0.65rem;
@@ -127,6 +134,11 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr) auto;
       overflow: hidden;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
     }
 
     .table-top {
@@ -203,7 +215,7 @@
       justify-content: start;
       height: calc(100% - 1.9rem);
       overflow: auto;
-      padding: 0.15rem;
+      padding: 0.7rem 0.15rem 0.15rem;
     }
 
     .card {
@@ -397,6 +409,7 @@
     }
 
     .record {
+      position: relative;
       border: 1px solid var(--line);
       border-radius: 0.55rem;
       background: rgba(34, 42, 61, 0.58);
@@ -404,6 +417,10 @@
       display: grid;
       gap: 0.32rem;
       line-height: 1.32;
+    }
+
+    .record.has-undo {
+      padding-bottom: 2rem;
     }
 
     .record.cancelled {
@@ -423,9 +440,30 @@
       color: var(--muted);
     }
 
-    .record button {
-      padding: 0.45rem 0.65rem;
-      font-size: 0.78rem;
+    .undo-button {
+      position: absolute;
+      left: 0.45rem;
+      bottom: 0.42rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      display: inline-grid;
+      place-items: center;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+    }
+
+    .undo-button:hover:not(:disabled) {
+      color: var(--accent);
+      background: transparent;
+    }
+
+    .undo-button svg {
+      width: 0.95rem;
+      height: 0.95rem;
+      display: block;
     }
 
     .tip-box {
@@ -587,8 +625,11 @@
     <section class="panel table">
       <div class="table-top">
         <div>
-          <h1>卡牌大师战斗助手</h1>
-          <p class="subtitle">固定视口个人操作台。选择技能后按提示操作，所有改变牌区的操作都会生成可撤销记录。<span id="connectionStatus" class="pill">连接中</span></p>
+          <div class="title-row">
+            <h1>卡牌大师战斗助手</h1>
+            <span id="connectionStatus" class="pill">连接中</span>
+          </div>
+          <p class="subtitle">固定视口个人操作台。选择技能后按提示操作，所有改变牌区的操作都会生成可撤销记录。</p>
         </div>
         <div class="stats" aria-label="牌堆状态">
           <div class="stat"><span>牌堆</span><b id="deckCount">0</b></div>
@@ -654,11 +695,11 @@
     ];
 
     const SKILLS = [
-      { id: "gamble", name: "豪赌乾坤", hasSL: false },
-      { id: "hedge", name: "风险对冲", hasSL: false },
-      { id: "magic", name: "魔法卡牌", hasSL: true, defaultSL: 1 },
-      { id: "fortune", name: "时运再来", hasSL: true, defaultSL: 1 },
-      { id: "trap", name: "陷阱卡牌", hasSL: true, defaultSL: 1 },
+      { id: "gamble", name: "豪赌乾坤", maxLevel: 1 },
+      { id: "hedge", name: "风险对冲", maxLevel: 1 },
+      { id: "magic", name: "魔法卡牌", maxLevel: 3 },
+      { id: "fortune", name: "时运再来", maxLevel: 5 },
+      { id: "trap", name: "陷阱卡牌", maxLevel: 4 },
     ];
 
     const state = {
@@ -669,13 +710,16 @@
       records: [],
       nextId: 1,
       activeSkill: "magic",
-      characterLevel: 1,
+      characterLevel: 5,
       version: 0,
       skillLevels: {
-        magic: 1,
-        fortune: 1,
-        trap: 1,
+        gamble: 0,
+        hedge: 0,
+        magic: 0,
+        fortune: 0,
+        trap: 0,
       },
+      skillNotice: "",
       pendingHedge: null,
     };
 
@@ -748,14 +792,17 @@
       state.records = nextState.records || [];
       state.nextId = nextState.nextId || state.nextId;
       state.activeSkill = nextState.activeSkill || state.activeSkill;
-      state.characterLevel = nextState.characterLevel || 1;
+      state.characterLevel = nextState.characterLevel ?? 5;
       state.version = nextState.version || 0;
       state.skillLevels = {
-        magic: 1,
-        fortune: 1,
-        trap: 1,
+        gamble: 0,
+        hedge: 0,
+        magic: 0,
+        fortune: 0,
+        trap: 0,
         ...(nextState.skillLevels || {}),
       };
+      state.skillNotice = nextState.skillNotice || "";
       state.pendingHedge = nextState.pendingHedge ? { ...nextState.pendingHedge } : null;
       render();
     }
@@ -1017,7 +1064,7 @@
     }
 
     function skillLevel(skillId) {
-      return Math.max(1, Number(state.skillLevels[skillId] || 1));
+      return Math.max(0, Number(state.skillLevels[skillId] || 0));
     }
 
     function addRecord(skillName, operation, result, before, options = {}) {
@@ -1111,18 +1158,10 @@
         </div>
       `;
       els.skillTable.innerHTML = levelRow + SKILLS.map((skill) => {
-        if (!skill.hasSL) {
-          return `
-            <div class="skill-row">
-              <span class="skill-name">${skill.name}</span>
-              <span class="pill">固定</span>
-            </div>
-          `;
-        }
         return `
           <div class="skill-row">
             <span class="skill-name">${skill.name}</span>
-            <input data-skill-level="${skill.id}" type="number" min="1" max="10" value="${skillLevel(skill.id)}" aria-label="${skill.name} SL">
+            <input data-skill-level="${skill.id}" type="number" min="0" max="${skill.maxLevel}" value="${skillLevel(skill.id)}" aria-label="${skill.name} SL">
           </div>
         `;
       }).join("");
@@ -1131,7 +1170,7 @@
     function renderRecords() {
       const latest = latestUndoableRecord();
       els.records.innerHTML = state.records.map((record) => `
-        <article class="record ${record.cancelled ? "cancelled" : ""}">
+        <article class="record ${record.cancelled ? "cancelled" : ""} ${!record.cancelled && record.undoable && latest?.id === record.id ? "has-undo" : ""}">
           <div class="record-title">
             <span>${record.skillName}</span>
             <small>${record.time}</small>
@@ -1140,10 +1179,17 @@
           <div><strong>结算：</strong>${record.result}</div>
           ${record.cancelled ? `<small class="warn">已撤销，牌区状态已回滚到此操作前。</small>` : ""}
           ${!record.cancelled && !record.undoable ? `<small class="muted">系统记录，不参与撤销。</small>` : ""}
-          ${!record.cancelled && record.undoable && latest?.id === record.id ? `<button class="secondary" data-undo="${record.id}">撤销此操作</button>` : ""}
+          ${!record.cancelled && record.undoable && latest?.id === record.id ? `
+            <button class="undo-button" data-undo="${record.id}" title="撤销此操作" aria-label="撤销此操作">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M7.2 7H15a6 6 0 0 1 0 12H9.5a1 1 0 1 1 0-2H15a4 4 0 0 0 0-8H7.2l2.1 2.1a1 1 0 0 1-1.4 1.4L4.1 8.7a1 1 0 0 1 0-1.4l3.8-3.8a1 1 0 0 1 1.4 1.4L7.2 7Z"/>
+              </svg>
+            </button>
+          ` : ""}
           ${!record.cancelled && record.undoable && latest?.id !== record.id ? `<small class="muted">需先撤销之后的操作。</small>` : ""}
         </article>
       `).join("") || `<div class="empty">操作记录信息卡将在这里出现</div>`;
+      els.records.scrollTop = els.records.scrollHeight;
     }
 
     function renderSkillNav() {
@@ -1155,7 +1201,7 @@
     function renderOperation() {
       const skill = currentSkill();
       const selected = selectedCards();
-      els.operationTip.innerHTML = operationTipText(skill.id);
+      els.operationTip.innerHTML = `${state.skillNotice ? `<strong class="warn">${state.skillNotice}</strong><br>` : ""}${operationTipText(skill.id)}`;
       els.controls.innerHTML = controlsHtml(skill.id, selected);
       els.flowState.textContent = state.pendingHedge ? "风险对冲：待弃牌" : "待操作";
     }
@@ -1174,6 +1220,13 @@
     }
 
     function controlsHtml(skillId, selected) {
+      if (skillLevel(skillId) === 0) {
+        return `
+          <div class="control-status">未习得，不可发动该技能。</div>
+          <div class="control-line"><span class="muted">请先在角色技能表中把该技能等级设为 1 或以上。</span></div>
+        `;
+      }
+
       if (skillId === "gamble") {
         return `
           <div class="control-status">待操作：无需执行；不生成操作记录。</div>
