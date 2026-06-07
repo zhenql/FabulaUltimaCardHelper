@@ -387,15 +387,16 @@
 
     .skills-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 0.28rem 0.4rem;
       align-items: center;
     }
 
     .skill-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 3.8rem;
-      gap: 0.32rem;
+      grid-template-columns: minmax(0, max-content) 3.2rem;
+      justify-content: start;
+      gap: 0.4rem;
       align-items: center;
       border: 0;
       border-radius: 0;
@@ -616,6 +617,47 @@
       text-align: center;
     }
 
+    .skill-sheet {
+      display: contents;
+    }
+
+    .skill-sheet-handle,
+    .skill-fab,
+    .sheet-backdrop {
+      display: none;
+    }
+
+    .mobile-tabs {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      padding: 0.45rem 0.6rem calc(0.45rem + env(safe-area-inset-bottom));
+      background: var(--panel-solid);
+      border-top: 1px solid var(--line);
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+      z-index: 200;
+    }
+
+    .mobile-tabs button {
+      background: var(--panel-soft);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      padding: 0.62rem 0.4rem;
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+
+    .mobile-tabs button.active {
+      background: var(--accent);
+      color: #1c1208;
+      border-color: var(--accent);
+    }
+
     @media (max-width: 980px) {
       html,
       body {
@@ -636,11 +678,287 @@
         min-height: 760px;
       }
     }
+
+    @media (max-width: 700px) {
+      html,
+      body {
+        overflow: auto;
+        height: auto;
+      }
+
+      body {
+        font-size: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding: 0.6rem 0.6rem calc(4.6rem + env(safe-area-inset-bottom));
+      }
+
+      .mobile-tabs {
+        display: grid;
+      }
+
+      .app,
+      .table,
+      .side,
+      .table-middle {
+        display: contents;
+      }
+
+      /* Tab show/hide */
+      body.m-game [data-mtab="log"] {
+        display: none;
+      }
+
+      body.m-log [data-mtab="game"] {
+        display: none;
+      }
+
+      /* Card-like surface for the flow sections */
+      .table-top,
+      .hint-bar,
+      .zone,
+      .side-card {
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 0.9rem;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+        padding: 0.6rem 0.7rem;
+        margin: 0;
+      }
+
+      /* Game tab ordering */
+      .table-top {
+        order: 1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      .table-top .subtitle {
+        display: none;
+      }
+
+      .table-top h1 {
+        font-size: 1.15rem;
+      }
+
+      .stats {
+        flex: 1 1 100%;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.4rem;
+      }
+
+      .stat {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 0.35rem;
+        padding: 0.32rem 0.3rem;
+      }
+
+      .stat span {
+        display: inline;
+        font-size: 0.78rem;
+      }
+
+      .stat b {
+        display: inline;
+        margin-top: 0;
+        font-size: 0.95rem;
+      }
+
+      .zone[aria-label="手牌区"] {
+        order: 2;
+      }
+
+      .zone[aria-label="弃牌堆"] {
+        order: 3;
+      }
+
+      .hint-bar {
+        order: 4;
+        border-top: 0;
+      }
+
+      /* Log / character tab ordering */
+      [aria-label="角色技能表"] {
+        order: 1;
+      }
+
+      [aria-label="操作记录区"] {
+        order: 2;
+        flex: 1 1 auto;
+      }
+
+      /* Hand area: fill width, internal scroll */
+      .zone {
+        overflow: visible;
+      }
+
+      .hand-grid {
+        height: auto;
+        max-height: 44vh;
+        overflow: auto;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 0.3rem;
+        padding: 0.4rem 0.05rem 0.1rem;
+      }
+
+      .card {
+        width: 100%;
+        border-radius: 0.5rem;
+      }
+
+      .card .corner,
+      .discard-card .corner {
+        top: 0.18rem;
+        left: 0.2rem;
+        font-size: 0.6rem;
+      }
+
+      .card .corner.bottom,
+      .discard-card .corner.bottom {
+        right: 0.2rem;
+        bottom: 0.18rem;
+      }
+
+      .card .value {
+        font-size: 1.1rem;
+      }
+
+      .zone[aria-label="弃牌堆"] {
+        padding: 0.4rem 0.7rem;
+      }
+
+      .zone[aria-label="弃牌堆"] .zone-head {
+        margin-bottom: 0.25rem;
+      }
+
+      .discard-stage {
+        height: calc((100vw - 4.1rem) / 6 * 1.4 + 8px);
+        background: none;
+      }
+
+      .discard-card {
+        width: calc((100% - 5 * 0.3rem) / 6);
+        border-radius: 0.5rem;
+        font-size: 1.1rem;
+        transform: translate(-6px, -18px);
+      }
+
+      .log-list {
+        height: auto;
+        max-height: none;
+      }
+
+      /* Floating skill button (FAB) */
+      .skill-fab {
+        display: block;
+        position: fixed;
+        right: 0.9rem;
+        bottom: calc(4.6rem + env(safe-area-inset-bottom));
+        z-index: 210;
+        padding: 0;
+        width: 3.3rem;
+        height: 3.3rem;
+        border-radius: 50%;
+        font-size: 0.82rem;
+        font-weight: 900;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+      }
+
+      body.sheet-open .skill-fab {
+        background: var(--panel-soft);
+        color: var(--text);
+        border: 1px solid var(--line);
+      }
+
+      /* Slide-up skill panel */
+      .sheet-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 7, 12, 0.55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 220ms ease;
+        z-index: 190;
+      }
+
+      body.sheet-open .sheet-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .skill-sheet {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        max-height: 72vh;
+        overflow: auto;
+        padding: 0.7rem 0.8rem calc(4.8rem + env(safe-area-inset-bottom));
+        background: var(--panel-solid);
+        border-top: 1px solid var(--line);
+        border-radius: 1.1rem 1.1rem 0 0;
+        box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.5);
+        transform: translateY(110%);
+        transition: transform 260ms ease;
+        z-index: 200;
+      }
+
+      body.sheet-open .skill-sheet {
+        transform: translateY(0);
+      }
+
+      body.m-log .skill-sheet,
+      body.m-log .skill-fab,
+      body.m-log .sheet-backdrop {
+        display: none;
+      }
+
+      .skill-sheet-handle {
+        display: block;
+        order: 0;
+        align-self: center;
+        width: 2.6rem;
+        height: 0.28rem;
+        border-radius: 999px;
+        background: var(--line);
+        margin-bottom: 0.1rem;
+      }
+
+      .skill-sheet #skillNav {
+        order: 1;
+        gap: 0.32rem;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        backdrop-filter: none;
+        padding: 0;
+      }
+
+      .skill-sheet [aria-label="操作提示区"] {
+        order: 2;
+      }
+
+      .skill-sheet [aria-label="操作控制区"] {
+        order: 3;
+      }
+    }
   </style>
 </head>
-<body>
+<body class="m-game">
   <main class="app">
-    <section class="panel table">
+    <section class="panel table" data-mtab="game">
       <div class="table-top">
         <div>
           <div class="title-row">
@@ -683,26 +1001,39 @@
     </section>
 
     <aside class="side">
-      <section class="panel side-card" aria-label="角色技能表">
+      <section class="panel side-card" aria-label="角色技能表" data-mtab="log">
         <div class="skills-grid" id="skillTable"></div>
       </section>
 
-      <section class="panel side-card" aria-label="操作记录区">
+      <section class="panel side-card" aria-label="操作记录区" data-mtab="log">
         <div id="records" class="log-list"></div>
       </section>
 
-      <section class="panel side-card" aria-label="操作提示区">
-        <div id="operationTip" class="tip-box"></div>
-      </section>
+      <div class="skill-sheet" data-mtab="game">
+        <div class="skill-sheet-handle" aria-hidden="true"></div>
 
-      <section class="panel side-card" aria-label="操作控制区">
-        <span id="flowState" class="pill">待操作</span>
-        <div id="controls" class="controls"></div>
-      </section>
+        <section class="panel side-card" aria-label="操作提示区">
+          <div id="operationTip" class="tip-box"></div>
+        </section>
 
-      <nav class="panel side-card nav" id="skillNav" aria-label="技能导航栏"></nav>
+        <section class="panel side-card" aria-label="操作控制区">
+          <span id="flowState" class="pill">待操作</span>
+          <div id="controls" class="controls"></div>
+        </section>
+
+        <nav class="panel side-card nav" id="skillNav" aria-label="技能导航栏"></nav>
+      </div>
     </aside>
   </main>
+
+  <div class="sheet-backdrop" data-mtab="game" aria-hidden="true"></div>
+
+  <button class="skill-fab" type="button" data-mtab="game" aria-label="技能面板">技能</button>
+
+  <nav class="mobile-tabs" aria-label="底部导航">
+    <button data-mtab-btn="game" class="active">主要游戏</button>
+    <button data-mtab-btn="log">日志 / 角色卡</button>
+  </nav>
 
   <script>
     const SUITS = [
@@ -1223,7 +1554,7 @@
           ${!record.cancelled && record.undoable && latest?.id !== record.id ? `<small class="muted">需先撤销之后的操作。</small>` : ""}
         </article>
       `).join("") || `<div class="empty">操作记录信息卡将在这里出现</div>`;
-      els.records.scrollTop = els.records.scrollHeight;
+      scrollLogToBottom();
     }
 
     function renderSkillNav() {
@@ -1385,6 +1716,36 @@
     });
 
     document.querySelector("#newConflict").addEventListener("click", startConflict);
+
+    function scrollLogToBottom() {
+      els.records.scrollTop = els.records.scrollHeight;
+      if (window.matchMedia("(max-width: 700px)").matches && document.body.classList.contains("m-log")) {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, document.documentElement.scrollHeight);
+        });
+      }
+    }
+
+    document.querySelector(".mobile-tabs").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-mtab-btn]");
+      if (!button) return;
+      const tab = button.dataset.mtabBtn;
+      document.body.classList.toggle("m-game", tab === "game");
+      document.body.classList.toggle("m-log", tab === "log");
+      if (tab !== "game") document.body.classList.remove("sheet-open");
+      document.querySelectorAll("[data-mtab-btn]").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+      if (tab === "log") scrollLogToBottom();
+    });
+
+    document.querySelector(".skill-fab").addEventListener("click", () => {
+      document.body.classList.toggle("sheet-open");
+    });
+
+    document.querySelector(".sheet-backdrop").addEventListener("click", () => {
+      document.body.classList.remove("sheet-open");
+    });
 
     connect();
   </script>
