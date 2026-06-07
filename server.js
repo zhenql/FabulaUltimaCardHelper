@@ -10,6 +10,7 @@ const PORT = Number(process.env.PORT || 6021);
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "card_tool.sqlite");
 const ROOMS_PATH = path.join(__dirname, "rooms.json");
+const ASSETS_DIR = path.resolve(__dirname, "..", "assets");
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -625,6 +626,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
 app.use(express.static(__dirname));
+app.use("/assets", express.static(ASSETS_DIR));
 
 app.get("/room/:roomId", (req, res) => {
   const roomId = normalizeRoomId(req.params.roomId);

@@ -242,6 +242,29 @@
       color: #f8e6bb;
     }
 
+    .card.has-art,
+    .discard-card.has-art {
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      overflow: hidden;
+    }
+
+    .card.has-art::after,
+    .discard-card.has-art::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 248, 236, 0.18);
+      pointer-events: none;
+    }
+
+    .card.has-art span,
+    .discard-card.has-art span {
+      z-index: 1;
+      text-shadow: 0 1px 2px rgba(255, 248, 236, 0.85);
+    }
+
     .card.selected {
       outline: 3px solid var(--accent);
       transform: translateY(-5px);
@@ -251,25 +274,29 @@
       opacity: 0.58;
     }
 
-    .card .corner {
+    .card .corner,
+    .discard-card .corner {
       position: absolute;
-      top: 0.52rem;
-      left: 0.6rem;
+      top: 0.34rem;
+      left: 0.38rem;
       font-weight: 900;
       line-height: 1.05;
     }
 
-    .card .value {
-      font-size: 1.95rem;
-      font-weight: 950;
+    .card .corner.bottom,
+    .discard-card .corner.bottom {
+      top: auto;
+      left: auto;
+      right: 0.38rem;
+      bottom: 0.34rem;
+      transform: rotate(180deg);
     }
 
-    .card .type {
-      position: absolute;
-      right: 0.6rem;
-      bottom: 0.5rem;
-      font-size: 0.72rem;
-      opacity: 0.72;
+    .card .value {
+      position: relative;
+      z-index: 1;
+      font-size: 1.95rem;
+      font-weight: 950;
     }
 
     .discard-stage {
@@ -305,15 +332,6 @@
     .discard-card.joker {
       background: linear-gradient(145deg, #31263c, #15121c);
       color: #f8e6bb;
-    }
-
-    .discard-card .mini-corner {
-      position: absolute;
-      top: 0.45rem;
-      left: 0.5rem;
-      font-size: 0.82rem;
-      font-weight: 900;
-      line-height: 1.05;
     }
 
     .hint-bar {
@@ -933,6 +951,21 @@
       return card.joker ? "百搭牌" : `${card.suit}${card.value}(${card.type})`;
     }
 
+    function cardArtName(card) {
+      if (card.joker) return "";
+      return {
+        "♦": "风",
+        "♥": "火",
+        "♣": "土",
+        "♠": "冰",
+      }[card.suit] || "";
+    }
+
+    function cardArtStyle(card) {
+      const artName = cardArtName(card);
+      return artName ? `background-image: url('/assets/${encodeURIComponent(artName)}.png');` : "";
+    }
+
     function cardsText(cards) {
       return cards.length ? cards.map(cardText).join("、") : "无";
     }
@@ -1128,10 +1161,10 @@
       els.discardTop.textContent = state.discard[0] ? `顶部：${cardText(state.discard[0])}` : "暂无弃牌";
 
       els.hand.innerHTML = state.hand.map((card) => `
-        <div class="card ${card.red ? "red" : ""} ${card.joker ? "joker" : ""} ${state.selectedIds.has(card.id) ? "selected" : ""}" data-card-id="${card.id}">
+        <div class="card ${card.red ? "red" : ""} ${card.joker ? "joker" : "has-art"} ${state.selectedIds.has(card.id) ? "selected" : ""}" data-card-id="${card.id}" style="${cardArtStyle(card)}">
           <span class="corner">${card.joker ? "★" : `${card.suit}<br>${card.value}`}</span>
           <span class="value">${card.joker ? "J" : card.value}</span>
-          <span class="type">${card.joker ? "百搭" : card.type}</span>
+          <span class="corner bottom">${card.joker ? "★" : `${card.suit}<br>${card.value}`}</span>
         </div>
       `).join("") || `<div class="empty">暂无手牌</div>`;
 
@@ -1142,9 +1175,10 @@
         const top = 22;
         const zIndex = 100 + visibleIndex;
         return `
-          <div class="discard-card ${card.red ? "red" : ""} ${card.joker ? "joker" : ""}" style="left:${left}px; top:${top}px; z-index:${zIndex};">
-            <span class="mini-corner">${card.joker ? "★" : `${card.suit}<br>${card.value}`}</span>
+          <div class="discard-card ${card.red ? "red" : ""} ${card.joker ? "joker" : "has-art"}" style="left:${left}px; top:${top}px; z-index:${zIndex}; ${cardArtStyle(card)}">
+            <span class="corner">${card.joker ? "★" : `${card.suit}<br>${card.value}`}</span>
             <span>${card.joker ? "J" : card.value}</span>
+            <span class="corner bottom">${card.joker ? "★" : `${card.suit}<br>${card.value}`}</span>
           </div>
         `;
       }).join("") || `<div class="empty">弃牌堆为空</div>`;
