@@ -10,7 +10,7 @@ const PORT = Number(process.env.PORT || 6021);
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "card_tool.sqlite");
 const ROOMS_PATH = path.join(__dirname, "rooms.json");
-const ASSETS_DIR = path.resolve(__dirname, "..", "assets");
+const ASSETS_DIR = path.join(__dirname, "assets");
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
